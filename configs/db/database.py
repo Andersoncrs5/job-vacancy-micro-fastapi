@@ -522,6 +522,8 @@ class VacancyEntity(Base):
     )
 
 class VacancyMetricEntity(Base):
+    __tablename__ = "vacancies_metric"
+
     vacancy_id: Mapped[int] = mapped_column(
         ForeignKey("vacancies.id"), nullable=False, primary_key=True
     )
