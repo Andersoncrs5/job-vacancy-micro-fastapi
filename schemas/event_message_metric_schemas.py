@@ -9,6 +9,13 @@ class SumRedEnum(str, Enum):
     SUM = "SUM"
     RED = "RED"
 
+class ColumnsVacancyMetricEnum(str, Enum):
+    shortlists_count = "shortlists_count"
+    shares_count = "shares_count"
+    views_count = "views_count"
+    applications_count = "applications_count"
+    interview_count = "interview_count"
+
 class ColumnUserMetricEnum(str, Enum):
     post_count = "post_count"
     favorite_post_count = "favorite_post_count"
@@ -28,12 +35,14 @@ class ColumnUserMetricEnum(str, Enum):
 
 class EntityEnum(str, Enum):
     USER_METRIC = "USER_METRIC"
+    VACANCY_METRIC = "VACANCY_METRIC"
 
 class EventMessageMetric(ORJSONModel):
     event_id: str
     metric_id: int
-    column: ColumnUserMetricEnum
+    column: str
     action: SumRedEnum
     entity: EntityEnum
     created_at: datetime
     source: str
+    metadata: dict
