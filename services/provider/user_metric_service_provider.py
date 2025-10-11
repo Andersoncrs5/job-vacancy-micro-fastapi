@@ -2,7 +2,7 @@ import structlog
 
 from configs.db.database import UserMetricEntity
 from repositories.provider.user_metric_repository_provider import UserMetricRepositoryProvider
-from schemas.event_message_schemas import SumRedEnum, EventMessageMetric
+from schemas.event_message_metric_schemas import SumRedEnum, EventMessageMetric
 from services.base.user_metric_service_base import UserMetricServiceBase
 
 logger = structlog.get_logger()

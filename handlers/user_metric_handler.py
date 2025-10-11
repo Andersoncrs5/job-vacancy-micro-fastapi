@@ -1,6 +1,6 @@
 import structlog
 
-from schemas.event_message_schemas import EventMessageMetric, ColumnUserMetricEnum
+from schemas.event_message_metric_schemas import EventMessageMetric, ColumnUserMetricEnum
 from services.provider.user_metric_service_provider import UserMetricServiceProvider
 
 logger = structlog.get_logger()

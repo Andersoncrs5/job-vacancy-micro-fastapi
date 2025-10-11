@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 
 from configs.db.database import UserMetricEntity
-from schemas.event_message_schemas import SumRedEnum
+from schemas.event_message_metric_schemas import SumRedEnum
 
 
 class UserMetricServiceBase(ABC):
