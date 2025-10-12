@@ -39,6 +39,7 @@ async def get_db():
     async with AsyncSessionLocal() as session:
         yield session
 
+
 class UserEntity(Base):
     __tablename__ = "users"
 
@@ -135,7 +136,13 @@ class UserEntity(Base):
         cascade="all, delete-orphan"
     )
 
-    metric: Mapped["UserMetricEntity"] = relationship("UserMetricEntity", back_populates="owner", uselist=False)
+    metric: Mapped["UserMetricEntity"] = relationship(
+        "UserMetricEntity",
+        back_populates="owner",
+        uselist=False,
+        cascade="all, delete-orphan",
+        lazy="joined"
+    )
 
     favorite_comment_user: Mapped[List["FavoriteCommentPostUserEntity"]] = relationship(
         "FavoriteCommentPostUserEntity",
@@ -147,6 +154,12 @@ class UserEntity(Base):
         "ReactionCommentPostEnterpriseEntity",
         back_populates="user",
         cascade="all, delete-orphan"
+    )
+
+    enterprise_followers_relationships: Mapped[List["EnterpriseFollowsUserEntity"]] = relationship(
+        "EnterpriseFollowsUserEntity",
+        back_populates="followed_user",
+        cascade="all, delete-orphan",
     )
 
 class UserMetricEntity(Base):
@@ -165,18 +178,18 @@ class UserMetricEntity(Base):
     follower_count: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
     followed_count: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
 
-    share_count: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
-    connection_count: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    share_count: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)  #
+    connection_count: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)  #
 
-    blocked_count: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    blocked_count: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)  #
 
     reaction_comment_given_count: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
     reaction_comment_received_count: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
 
     enterprise_follow_count: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
-    enterprise_follower_count: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    enterprise_follower_count: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)  #
 
-    profile_view_count: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    profile_view_count: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)  #
     vacancy_application_count: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
 
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), server_default=func.now(),
@@ -398,9 +411,53 @@ class EnterpriseEntity(Base):
 
     address: Mapped["AddressEnterpriseEntity"] = relationship("AddressEnterpriseEntity", back_populates="enterprise")
 
+    metrics: Mapped["EnterpriseMetricEntity"] = relationship(
+        "EnterpriseMetricEntity",
+        back_populates="enterprise",
+        uselist=False,
+        cascade="all, delete-orphan",
+        lazy="joined"
+    )
+
     followers_relationships: Mapped[List["FollowerRelationshipEnterpriseEntity"]] = relationship(
         "FollowerRelationshipEnterpriseEntity",
         back_populates="followed_enterprise", cascade="all, delete-orphan",
+    )
+
+    following_users_relationships: Mapped[List["EnterpriseFollowsUserEntity"]] = relationship(
+        "EnterpriseFollowsUserEntity",
+        back_populates="follower_enterprise",
+        cascade="all, delete-orphan",
+    )
+
+class EnterpriseMetricEntity(Base):
+    __tablename__ = "enterprises_metric"
+
+    enterprise_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("enterprises.id"), primary_key=True
+    )
+
+    follower_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    vacancies_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+    post_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    comment_post: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+    followed_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    view_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+    review_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    employments_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+    last_activity_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(),
+                                                 onupdate=func.now(), nullable=False)
+
+    enterprise: Mapped["EnterpriseEntity"] = relationship(
+        "EnterpriseEntity",
+        back_populates="metrics"
     )
 
 class FollowerRelationshipEnterpriseEntity(Base):
@@ -434,6 +491,41 @@ class FollowerRelationshipEnterpriseEntity(Base):
         "EnterpriseEntity",
         foreign_keys=[enterprise_id],
         back_populates="followers_relationships"
+    )
+
+class EnterpriseFollowsUserEntity(Base):
+    __tablename__ = "enterprise_follows_user"
+
+    __table_args__ = (
+        UniqueConstraint("enterprise_id", "user_id", name="uq_enterprise_user_follow"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+
+    enterprise_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("enterprises.id")
+    )
+
+    user_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("users.id")
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    follower_enterprise: Mapped["EnterpriseEntity"] = relationship(
+        "EnterpriseEntity",
+        foreign_keys=[enterprise_id],
+        back_populates="following_users_relationships",
+        lazy="joined"
+    )
+
+    followed_user: Mapped["UserEntity"] = relationship(
+        "UserEntity",
+        foreign_keys=[user_id],
+        back_populates="enterprise_followers_relationships",
+        lazy="joined"
     )
 
 class AddressEnterpriseEntity(Base):
@@ -541,6 +633,7 @@ class VacancyMetricEntity(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(),
                                                  onupdate=func.now(), nullable=False)
+
 class VacancySkillEntity(Base):
     __tablename__ = "vacancy_skills"
 
