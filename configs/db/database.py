@@ -416,7 +416,6 @@ class EnterpriseEntity(Base):
         back_populates="enterprise",
         uselist=False,
         cascade="all, delete-orphan",
-        lazy="joined"
     )
 
     followers_relationships: Mapped[List["FollowerRelationshipEnterpriseEntity"]] = relationship(
@@ -787,6 +786,36 @@ class PostEnterpriseEntity(Base):
         cascade="all, delete-orphan",
     )
 
+    metrics: Mapped["PostEnterpriseMetricEntity"] = relationship(
+        "PostEnterpriseMetricEntity",
+        back_populates="post",
+        uselist=False,
+        cascade="all, delete-orphan"
+    )
+
+class PostEnterpriseMetricEntity(Base):
+    __tablename__ = "metric_posts_enterprise"
+
+    post_id: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey("posts_enterprise.id"),
+        primary_key=True
+    )
+
+    views_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    shares_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+    reactions_like_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    reactions_dislike_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+    favorites_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    comments_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+    post: Mapped["PostEnterpriseEntity"] = relationship("PostEnterpriseEntity", back_populates="metrics")
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
 class CommentPostEnterpriseEntity(Base):
     __tablename__ = "comments_posts_enterprise"
 
@@ -1023,6 +1052,35 @@ class PostUserEntity(Base):
         "CommentPostUserEntity",
         back_populates="post",
         cascade="all, delete-orphan",
+    )
+
+    metrics: Mapped["PostUserMetricEntity"] = relationship(
+        "PostUserMetricEntity",
+        back_populates="post",
+        uselist=False,
+        cascade="all, delete-orphan"
+    )
+
+class PostUserMetricEntity(Base):
+    __tablename__ = "metric_posts_user"
+
+    post_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("posts_user.id"))
+
+    views_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    shares_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+    reactions_like_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    reactions_dislike_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+    favorites_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    comments_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+    post: Mapped["PostUserEntity"] = relationship(
+        "PostUserEntity",
+        back_populates="metrics"
     )
 
 class CommentPostUserEntity(Base):
