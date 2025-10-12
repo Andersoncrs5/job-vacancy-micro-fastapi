@@ -1,6 +1,4 @@
-from datetime import datetime, UTC
-
-from pydantic import Field
+from datetime import datetime
 
 from configs.orjson.orjson_config import ORJSONModel
 from enum import Enum
@@ -33,9 +31,38 @@ class ColumnUserMetricEnum(str, Enum):
     profile_view_count = "profile_view_count"
     vacancy_application_count = "vacancy_application_count"
 
+class ColumnEnterpriseMetricEnum(str, Enum):
+    followed_count = "followed_count"
+    follower_count = "follower_count"
+    vacancies_count = "vacancies_count"
+    post_count = "post_count"
+    comment_post = "comment_post"
+    view_count = "view_count"
+    review_count = "review_count"
+    employments_count = "employments_count"
+
 class EntityEnum(str, Enum):
     USER_METRIC = "USER_METRIC"
     VACANCY_METRIC = "VACANCY_METRIC"
+    ENTERPRISE_METRIC = "ENTERPRISE_METRIC"
+    POST_ENTERPRISE_METRIC = "POST_ENTERPRISE_METRIC"
+    POST_USER_METRIC = "POST_USER_METRIC"
+
+class ColumnsPostEnterpriseMetricEnum(str, Enum):
+    views_count = "views_count"
+    shares_count = "shares_count"
+    reactions_like_count = "reactions_like_count"
+    reactions_dislike_count = "reactions_dislike_count"
+    favorites_count = "favorites_count"
+    comments_count = "comments_count"
+
+class ColumnsPostUserMetricEnum(str, Enum):
+    views_count = "views_count"
+    shares_count = "shares_count"
+    reactions_like_count = "reactions_like_count"
+    reactions_dislike_count = "reactions_dislike_count"
+    favorites_count = "favorites_count"
+    comments_count = "comments_count"
 
 class EventMessageMetric(ORJSONModel):
     event_id: str
