@@ -1,0 +1,15 @@
+fastapi
+uvicorn[standard]
+pydantic
+sqlalchemy
+asyncpg
+python-dotenv
+pytest
+email_validator
+pytest-asyncio
+pytest-alembic
+sqlalchemy-utils
+structlog
+orjson
+pytest-cov
+aiokafka
