@@ -1064,7 +1064,7 @@ class PostUserEntity(Base):
 class PostUserMetricEntity(Base):
     __tablename__ = "metric_posts_user"
 
-    post_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("posts_user.id"))
+    post_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("posts_user.id"), primary_key=True)
 
     views_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     shares_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
