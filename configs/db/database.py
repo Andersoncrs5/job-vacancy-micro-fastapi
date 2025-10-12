@@ -875,6 +875,42 @@ class CommentPostEnterpriseEntity(Base):
         cascade="all, delete-orphan"
     )
 
+    metrics: Mapped["CommentPostEnterpriseMetricEntity"] = relationship(
+        "CommentPostEnterpriseMetricEntity",
+        back_populates="comment",
+        uselist=False,
+        cascade="all, delete-orphan"
+    )
+
+class CommentPostEnterpriseMetricEntity(Base):
+    __tablename__ = "metric_comments_posts_enterprise"
+
+    comment_id: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey("comments_posts_enterprise.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+
+    replies_count: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    edited_count: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+
+    views_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    shares_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+    reactions_like_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    reactions_dislike_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+    favorites_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+    comment: Mapped["CommentPostEnterpriseEntity"] = relationship(
+        "CommentPostEnterpriseEntity",
+        back_populates="metrics"
+    )
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(),
+                                                 onupdate=func.now(), nullable=False)
+
 class ReactionCommentPostEnterpriseEntity(Base):
     __tablename__ = "reaction_comments_enterprise"
 
