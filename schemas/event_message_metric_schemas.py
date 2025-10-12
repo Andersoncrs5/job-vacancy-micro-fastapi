@@ -47,6 +47,7 @@ class EntityEnum(str, Enum):
     ENTERPRISE_METRIC = "ENTERPRISE_METRIC"
     POST_ENTERPRISE_METRIC = "POST_ENTERPRISE_METRIC"
     POST_USER_METRIC = "POST_USER_METRIC"
+    COMMENT_POST_ENTERPRISE_METRIC = "COMMENT_POST_ENTERPRISE_METRIC"
 
 class ColumnsPostEnterpriseMetricEnum(str, Enum):
     views_count = "views_count"
@@ -63,6 +64,15 @@ class ColumnsPostUserMetricEnum(str, Enum):
     reactions_dislike_count = "reactions_dislike_count"
     favorites_count = "favorites_count"
     comments_count = "comments_count"
+
+class ColumnsCommentPostEnterpriseMetricEnum(str, Enum):
+    replies_count = "replies_count"
+    edited_count = "edited_count"
+    views_count = "views_count"
+    shares_count = "shares_count"
+    reactions_like_count = "reactions_like_count"
+    reactions_dislike_count = "reactions_dislike_count"
+    favorites_count = "favorites_count"
 
 class EventMessageMetric(ORJSONModel):
     event_id: str
