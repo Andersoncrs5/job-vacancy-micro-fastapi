@@ -1,4 +1,6 @@
 import os
+from typing import Final
+
 from aiokafka import AIOKafkaConsumer
 from aiokafka import AIOKafkaProducer
 from dotenv import load_dotenv
@@ -8,6 +10,7 @@ load_dotenv()
 KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:29092")
 
 SUM_RED_METRIC_TOPIC = "sum_red_metric_topic"
+SEND_EMAIL_TOPIC: Final[str] = "send_email_topic"
 
 async def get_kafka_consumer(topic: str, group_id: str):
     if KAFKA_BOOTSTRAP_SERVERS is None:
