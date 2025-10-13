@@ -5,6 +5,7 @@ import structlog
 from configs.db.database import AsyncSessionLocal
 from configs.db.kafka import get_kafka_consumer, SUM_RED_METRIC_TOPIC
 from handlers.comment_post_enterprise_metric_handler import CommentPostEnterpriseMetricHandler
+from handlers.comment_post_user_metric_handler import CommentPostUserMetricHandler
 from handlers.enterprise_metric_handler import EnterpriseMetricHandler
 from handlers.post_enterprise_metric_handler import PostEnterpriseMetricHandler
 from handlers.post_user_metric_handler import PostUserMetricHandler
@@ -12,6 +13,7 @@ from handlers.user_metric_handler import UserMetricHandler
 from handlers.vacancy_metric_handler import VacancyMetricHandler
 from repositories.provider.comment_post_enterprise_metric_repository_provider import \
     CommentPostEnterpriseMetricRepositoryProvider
+from repositories.provider.comment_post_user_metric_repository_provider import CommentPostUserMetricRepositoryProvider
 from repositories.provider.enterprise_metric_repository_provider import EnterpriseMetricRepositoryProvider
 from repositories.provider.post_enterprise_metric_repository_provider import PostEnterpriseMetricRepositoryProvider
 from repositories.provider.post_user_metric_repository_provider import PostUserMetricRepositoryProvider
@@ -19,6 +21,7 @@ from repositories.provider.user_metric_repository_provider import UserMetricRepo
 from repositories.provider.vacancy_metric_repository_provider import VacancyMetricRepositoryProvider
 from schemas.event_message_metric_schemas import EventMessageMetric, EntityEnum
 from services.base.comment_post_enterprise_metric_service_provider import CommentPostEnterpriseMetricServiceProvider
+from services.base.comment_post_user_metric_service_provider import CommentPostUserMetricServiceProvider
 from services.provider.enterprise_metric_service_provider import EnterpriseMetricServiceProvider
 from services.provider.post_enterprise_metric_service_provider import PostEnterpriseMetricServiceProvider
 from services.provider.post_user_metric_service_provider import PostUserMetricServiceProvider
@@ -51,6 +54,9 @@ async def consume_metric_events():
                 repository_metric_comment_post_enterprise = CommentPostEnterpriseMetricRepositoryProvider(db)
                 comment_post_enterprise_metric_service = CommentPostEnterpriseMetricServiceProvider(repository_metric_comment_post_enterprise)
 
+                repository_metric_comment_post_user = CommentPostUserMetricRepositoryProvider(db)
+                comment_post_user_metric_service = CommentPostUserMetricServiceProvider(repository_metric_comment_post_user)
+
                 try:
                     event = EventMessageMetric.model_validate_json(msg.value.decode("utf-8"))
                     logger.info(f"Event received: {event.model_dump_json()}")
@@ -77,6 +83,10 @@ async def consume_metric_events():
 
                     elif event.entity == EntityEnum.COMMENT_POST_ENTERPRISE_METRIC:
                         handler = CommentPostEnterpriseMetricHandler(event, comment_post_enterprise_metric_service)
+                        await handler.handle()
+
+                    elif event.entity == EntityEnum.COMMENT_POST_USER_METRIC:
+                        handler = CommentPostUserMetricHandler(event, comment_post_user_metric_service)
                         await handler.handle()
 
                 except Exception as e:
