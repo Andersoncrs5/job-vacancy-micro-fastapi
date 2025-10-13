@@ -13,3 +13,5 @@ structlog
 orjson
 pytest-cov
 aiokafka
+python-dotenv
+jinja2
