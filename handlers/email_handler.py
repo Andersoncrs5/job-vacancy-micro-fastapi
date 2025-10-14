@@ -1,3 +1,5 @@
+import datetime
+
 import structlog
 import os
 
@@ -13,8 +15,9 @@ logger = structlog.get_logger()
 load_dotenv()
 
 NAME_SITE = os.getenv('NAME_SITE')
+MARK_NAME = os.getenv('MARK_NAME')
 
-class UserHandler:
+class EmailHandler:
     def __init__(
             self,
             event: EventMessageEmail,
@@ -33,7 +36,9 @@ class UserHandler:
         template_context = {
             "user_name": user.name.split()[0],
             "user_email": user.email,
-            "welcome_link": NAME_SITE
+            "welcome_link": NAME_SITE,
+            "mark_name": MARK_NAME,
+            "now_year": datetime.date.year,
         }
 
         template_name_str = self.event.template_name.value
