@@ -9,6 +9,11 @@ class TemplateEnum(str, Enum):
     welcome_email = 'welcome_email'
     order_confirmation = 'order_confirmation'
     email_bye = 'email_bye'
+    informing_application = 'informing_application'
+    interview_scheduled = 'interview_scheduled'
+    offer_extended = 'offer_extended'
+    hired_confirmation = 'hired_confirmation'
+    rejected_application = 'rejected_application'
 
 class EventMessageEmail(ORJSONModel):
     event_id: UUID
