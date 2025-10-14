@@ -4,7 +4,7 @@ from configs.db.database import AsyncSessionLocal
 from configs.db.kafka import get_kafka_consumer, SEND_EMAIL_TOPIC
 from handlers.email_handler import EmailHandler
 from repositories.provider.user_repository_provider import UserRepositoryProvider
-from schemas.event_message_email import EventMessageEmail
+from schemas.event_message_email import EventMessageEmail, TemplateEnum
 from services.provider.email_service_provider import EmailServiceProvider
 from services.provider.user_service_provider import UserServiceProvider
 from templates.template_manager import TemplateManager
@@ -28,8 +28,33 @@ async def consume_send_email():
                     event = EventMessageEmail.model_validate_json(msg.value.decode("utf-8"))
                     logger.info(f"Event received: {event.model_dump_json()}")
 
-                    handler = EmailHandler(event, user_service, email_service, template_manager)
-                    await handler.send_email_welcome()
+                    if event.template_name == TemplateEnum.welcome_email:
+                        handler = EmailHandler(event, user_service, email_service, template_manager)
+                        await handler.send_email_welcome()
+
+                    if event.template_name == TemplateEnum.email_bye:
+                        handler = EmailHandler(event, user_service, email_service, template_manager)
+                        await handler.send_email_bye()
+
+                    if event.template_name == TemplateEnum.informing_application:
+                        handler = EmailHandler(event, user_service, email_service, template_manager)
+                        await handler.send_email_informing_application()
+
+                    if event.template_name == TemplateEnum.interview_scheduled:
+                        handler = EmailHandler(event, user_service, email_service, template_manager)
+                        await handler.send_email_interview_scheduled()
+
+                    if event.template_name == TemplateEnum.offer_extended:
+                        handler = EmailHandler(event, user_service, email_service, template_manager)
+                        await handler.send_email_offer_extended()
+
+                    if event.template_name == TemplateEnum.hired_confirmation:
+                        handler = EmailHandler(event, user_service, email_service, template_manager)
+                        await handler.send_email_hired_confirmation()
+
+                    if event.template_name == TemplateEnum.rejected_application:
+                        handler = EmailHandler(event, user_service, email_service, template_manager)
+                        await handler.send_email_rejected_application()
 
                     await consumer.commit()
                 except Exception as e:
