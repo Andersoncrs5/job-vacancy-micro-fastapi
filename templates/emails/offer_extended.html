@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Formal Job Offer Extended</title>
+  </head>
+<body style="margin:0; padding:0; background-color:#f4f4f4; font-family: Arial, sans-serif;">
+
+  <table width="100%" border="0" cellspacing="0" cellpadding="0" style="border-collapse: collapse;">
+    <tr>
+      <td align="center" style="padding: 25px 15px;">
+        <table border="0" cellpadding="0" cellspacing="0" width="600" class="container" style="border-collapse: collapse; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+
+          <tr>
+            <td align="center" style="padding: 30px 20px; background-color: #000000;">
+              <h1 style="margin: 0; color: #ffffff; font-size: 26px; font-weight: 700;">{{ mark_name }}</h1>
+            </td>
+          </tr>
+
+          <tr>
+            <td class="content-padding" style="padding: 40px 30px;">
+              <h2 style="color: #000000; font-size: 22px; margin-bottom: 20px;">Congratulations, {{ user_name }}!</h2>
+
+              <p style="margin: 0 0 16px 0; color: #555555; font-size: 15px; line-height: 1.6;">
+                We are thrilled to formally offer you the position of **{{ title_vacancy }}** at **{{ mark_name }}**! Your experience and skills stood out throughout the entire process.
+              </p>
+
+              <p style="margin: 0 0 28px 0; color: #555555; font-size: 15px; line-height: 1.6;">
+                Please review the full offer details, including compensation and benefits, by clicking the link below:
+              </p>
+
+              <table border="0" cellspacing="0" cellpadding="0" style="margin: 0 auto; margin-bottom: 30px;">
+                <tr>
+                    <td align="center" bgcolor="#000000" style="border-radius: 4px;">
+                        <a href="{{ offer_link }}" target="_blank" style="font-size: 17px; font-weight: bold; font-family: Arial, sans-serif; color: #ffffff; text-decoration: none; padding: 15px 30px; display: inline-block; border-radius: 4px;">
+                            REVIEW JOB OFFER
+                        </a>
+                    </td>
+                </tr>
+              </table>
+
+              <p style="margin-top: 30px; color: #777777; font-size: 14px; line-height: 1.6;">
+                We look forward to having you on the team!<br><strong>The {{ mark_name }} Hiring Team</strong>
+              </p>
+            </td>
+          </tr>
+
+          <tr>
+            <td align="center" style="padding: 20px 30px; font-size: 12px; color: #999999; border-top: 1px solid #eeeeee; background-color: #fafafa;">
+              <p style="margin: 5px 0 0 0; line-height: 1.5;">&copy; {{ now().year }} {{ mark_name }}. All rights reserved.</p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+
+</body>
+</html>
