@@ -3,7 +3,7 @@ import uuid
 
 from dotenv import load_dotenv
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncAttrs, AsyncEngine, AsyncSession
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, declared_attr
 from typing import Final, Optional, List
 from sqlalchemy import (
     DateTime, String,
@@ -18,7 +18,7 @@ from configs.db.enums import (
     MediaType, ProficiencyEnum, EmploymentTypeEnum,
     EmploymentStatusEnum, ExperienceLevelEnum,
     EducationLevelEnum, VacancyStatusEnum, WorkplaceTypeEnum,
-    AddressTypeEnum, ApplicationStatusEnum, ApplicationSourceEnum, ReactionTypeEnum
+    AddressTypeEnum, ApplicationStatusEnum, ApplicationSourceEnum, ReactionTypeEnum, NotificationTypeEnum
 )
 
 load_dotenv()
@@ -40,7 +40,16 @@ async def get_db():
         yield session
 
 
-class UserEntity(Base):
+class TimestampMixin(object):
+    @declared_attr
+    def created_at(cls) -> Mapped[datetime]:
+        return mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    @declared_attr
+    def updated_at(cls) -> Mapped[datetime]:
+        return mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+class UserEntity(TimestampMixin, Base):
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
@@ -52,9 +61,6 @@ class UserEntity(Base):
     is_block: Mapped[bool] = mapped_column(Boolean, default=False)
     avatar_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     refresh_token: Mapped[str | None] = mapped_column(String(), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(),
-                                                 onupdate=func.now(), nullable=False)
 
     posts: Mapped[list["PostUserEntity"]] = relationship("PostUserEntity", back_populates="owner")
     categories: Mapped[list["CategoryEntity"]] = relationship("CategoryEntity", back_populates="owner")
@@ -79,6 +85,7 @@ class UserEntity(Base):
     address: Mapped["AddressUserEntity"] = relationship("AddressUserEntity", back_populates="owner", uselist=False)
 
     applications: Mapped[List["ApplicationEntity"]] = relationship("ApplicationEntity", back_populates="user")
+    notifications: Mapped[List["NotificationEntity"]] = relationship("NotificationEntity", back_populates="user")
 
     comment_user_reactions: Mapped[List["ReactionCommentPostUserEntity"]] = relationship(
         "ReactionCommentPostUserEntity",
@@ -162,7 +169,32 @@ class UserEntity(Base):
         cascade="all, delete-orphan",
     )
 
-class UserMetricEntity(Base):
+class NotificationEntity(TimestampMixin, Base):
+    __tablename__ = "notification_user"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+
+    link: Mapped[str | None] = mapped_column(Text, nullable=True)
+    is_view: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+
+    type: Mapped[NotificationTypeEnum] = mapped_column(
+        Enum(NotificationTypeEnum, name="type_enum"),
+        nullable=False
+    )
+    entity_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    user: Mapped["UserEntity"] = relationship("UserEntity", back_populates="notifications")
+
+class UserMetricEntity(TimestampMixin, Base):
     __tablename__ = "metric_users"
 
     user_id: Mapped[int] = mapped_column(
@@ -200,10 +232,6 @@ class UserMetricEntity(Base):
     last_comment_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), server_default=func.now(),
                                                              nullable=True)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(),
-                                                 onupdate=func.now(), nullable=False)
-
     owner: Mapped["UserEntity"] = relationship("UserEntity", back_populates="metric", uselist=False)
 
 class FollowerRelationshipEntity(Base):
@@ -211,17 +239,24 @@ class FollowerRelationshipEntity(Base):
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
 
+    __table_args__ = (
+        UniqueConstraint('follower_id', 'followed_id', name='_follower_id_followed_id_uc_follower_relationships'),
+    )
+
     follower_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"))
     followed_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"))
+
+    receive_post: Mapped[bool] = mapped_column(Boolean, default=True)
+    receive_comment: Mapped[bool] = mapped_column(Boolean, default=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     follower: Mapped["UserEntity"] = relationship("UserEntity", foreign_keys=[follower_id],
-                                                  back_populates="following_relationships")
+                                                  back_populates="following_relationships", lazy="joined")
     followed: Mapped["UserEntity"] = relationship("UserEntity", foreign_keys=[followed_id],
-                                                  back_populates="followers_relationships")
+                                                  back_populates="followers_relationships", lazy="joined")
 
-class AddressUserEntity(Base):
+class AddressUserEntity(TimestampMixin, Base):
     __tablename__ = "addresses_user"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
@@ -232,7 +267,7 @@ class AddressUserEntity(Base):
 
     street: Mapped[str] = mapped_column(String(255), nullable=False)
     number: Mapped[str] = mapped_column(String(50), nullable=True)
-    complement: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    complement: Mapped[str | None] = mapped_column(Text, nullable=True)
     district: Mapped[str | None] = mapped_column(String(100), nullable=True)
     city: Mapped[str] = mapped_column(String(100), nullable=False)
     state: Mapped[str] = mapped_column(String(100), nullable=False)
@@ -246,14 +281,11 @@ class AddressUserEntity(Base):
     )
 
     is_default: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(),
-                                                 onupdate=func.now(), nullable=False)
+    is_visible: Mapped[bool] = mapped_column(Boolean, default=False, nullable=True)
 
     owner: Mapped["UserEntity"] = relationship("UserEntity", back_populates="address")
 
-class SavedSearchEntity(Base):
+class SavedSearchEntity(TimestampMixin, Base):
     __tablename__ = "saved_searches"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True, autoincrement=True)
@@ -261,18 +293,19 @@ class SavedSearchEntity(Base):
     name: Mapped[str] = mapped_column(String(100), index=True, nullable=False)
     query: Mapped[dict] = mapped_column(JSON, nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    is_public: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    is_public: Mapped[bool] = mapped_column(Boolean, default=False, nullable=True)
     last_executed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     execution_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     notifications_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), onupdate=func.now())
-
     owner: Mapped["UserEntity"] = relationship("UserEntity", back_populates="searchs")
 
-class MySkillEntity(Base):
+class MySkillEntity(TimestampMixin, Base):
     __tablename__ = "my_skills"
+
+    __table_args__ = (
+        UniqueConstraint('user_id', 'skill_id', name='_user_id_skill_id_uc_my_skills'),
+    )
 
     user_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"),
@@ -304,46 +337,35 @@ class MySkillEntity(Base):
 
     skill: Mapped["SkillEntity"] = relationship("SkillEntity", back_populates="my_skills")
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(),
-                                                 onupdate=func.now(), nullable=False)
-
-class SkillEntity(Base):
+class SkillEntity(TimestampMixin, Base):
     __tablename__ = "skills"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(100), nullable=False, unique=True, index=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(),
-                                                 onupdate=func.now(), nullable=False)
-
     my_skills: Mapped[list["MySkillEntity"]] = relationship("MySkillEntity", back_populates="skill")
     vacancies: Mapped[List["VacancySkillEntity"]] = relationship("VacancySkillEntity", back_populates="skill")
 
-class CurriculumEntity(Base):
+class CurriculumEntity(TimestampMixin, Base):
     __tablename__ = "curriculums"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
 
     user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"), unique=True, nullable=False)
 
-    title: Mapped[str] = mapped_column(String(150), nullable=False)
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
     is_updated: Mapped[bool] = mapped_column(Boolean, default=True)
     is_visible: Mapped[bool] = mapped_column(Boolean, default=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(),
-                                                 onupdate=func.now(), nullable=False)
 
     owner: Mapped["UserEntity"] = relationship("UserEntity", back_populates="curriculum")
 
-class IndustryEntity(Base):
+class IndustryEntity(TimestampMixin, Base):
     __tablename__ = "industries"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    name: Mapped[str] = mapped_column(String(100), nullable=False, unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     icon_url: Mapped[str | None] = mapped_column(String(255), nullable=True)
@@ -352,17 +374,13 @@ class IndustryEntity(Base):
     usage_count: Mapped[int] = mapped_column(Integer, default=0)
 
     user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(),
-                                                 onupdate=func.now(), nullable=False)
-
     owner: Mapped["UserEntity"] = relationship("UserEntity", back_populates="industries")
 
     enterprises: Mapped[list["EnterpriseEntity"]] = relationship(
         "EnterpriseEntity", back_populates="industry"
     )
 
-class AreaEntity(Base):
+class AreaEntity(TimestampMixin, Base):
     __tablename__ = "areas"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
@@ -371,9 +389,6 @@ class AreaEntity(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
     user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(),
-                                                 onupdate=func.now(), nullable=False)
 
     owner: Mapped["UserEntity"] = relationship("UserEntity", back_populates="areas")
 
@@ -382,11 +397,11 @@ class AreaEntity(Base):
         back_populates="area"
     )
 
-class EnterpriseEntity(Base):
+class EnterpriseEntity(TimestampMixin, Base):
     __tablename__ = "enterprises"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    name: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
 
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     website_url: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -396,12 +411,7 @@ class EnterpriseEntity(Base):
 
     industry_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("industries.id"))
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(),
-                                                 onupdate=func.now(), nullable=False)
-
     owner: Mapped["UserEntity"] = relationship("UserEntity", back_populates="enterprise")
-    address: Mapped["UserEntity"] = relationship("UserEntity", back_populates="enterprise")
     industry: Mapped["IndustryEntity"] = relationship("IndustryEntity", back_populates="enterprises")
     posts: Mapped[list["PostEnterpriseEntity"]] = relationship("PostEnterpriseEntity", back_populates="enterprise")
     reviews: Mapped[list["ReviewEnterprise"]] = relationship("ReviewEnterprise", back_populates="enterprise")
@@ -409,7 +419,8 @@ class EnterpriseEntity(Base):
                                                                          back_populates="enterprise")
     vacancies: Mapped[list["VacancyEntity"]] = relationship("VacancyEntity", back_populates="enterprise")
 
-    address: Mapped["AddressEnterpriseEntity"] = relationship("AddressEnterpriseEntity", back_populates="enterprise")
+    address_enterprise: Mapped["AddressEnterpriseEntity"] = relationship("AddressEnterpriseEntity",
+                                                                         back_populates="enterprise")
 
     metrics: Mapped["EnterpriseMetricEntity"] = relationship(
         "EnterpriseMetricEntity",
@@ -429,7 +440,37 @@ class EnterpriseEntity(Base):
         cascade="all, delete-orphan",
     )
 
-class EnterpriseMetricEntity(Base):
+    notifications: Mapped[List["NotificationEntity"]] = relationship(
+        "NotificationEnterpriseEntity",
+        back_populates="enterprise"
+    )
+
+class NotificationEnterpriseEntity(TimestampMixin, Base):
+    __tablename__ = "notification_enterprise_user"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+
+    enterprise_id: Mapped[int] = mapped_column(
+        ForeignKey("enterprises.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+
+    link: Mapped[str | None] = mapped_column(Text, nullable=True)
+    is_view: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+
+    type: Mapped[NotificationTypeEnum] = mapped_column(
+        Enum(NotificationTypeEnum, name="type_enum"),
+        nullable=False
+    )
+    entity_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    enterprise: Mapped["EnterpriseEntity"] = relationship("EnterpriseEntity", back_populates="notifications")
+
+class EnterpriseMetricEntity(TimestampMixin, Base):
     __tablename__ = "enterprises_metric"
 
     enterprise_id: Mapped[int] = mapped_column(
@@ -449,10 +490,6 @@ class EnterpriseMetricEntity(Base):
     employments_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
     last_activity_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(),
-                                                 onupdate=func.now(), nullable=False)
 
     enterprise: Mapped["EnterpriseEntity"] = relationship(
         "EnterpriseEntity",
@@ -475,6 +512,9 @@ class FollowerRelationshipEnterpriseEntity(Base):
     enterprise_id: Mapped[int] = mapped_column(
         BigInteger, ForeignKey("enterprises.id")
     )
+
+    receive_post: Mapped[bool] = mapped_column(Boolean, default=True)
+    receive_comment: Mapped[bool] = mapped_column(Boolean, default=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -509,6 +549,10 @@ class EnterpriseFollowsUserEntity(Base):
         BigInteger, ForeignKey("users.id")
     )
 
+    receive_post: Mapped[bool] = mapped_column(Boolean, default=True)
+    receive_comment: Mapped[bool] = mapped_column(Boolean, default=True)
+    receive_vacancy: Mapped[bool] = mapped_column(Boolean, default=True)
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -527,7 +571,7 @@ class EnterpriseFollowsUserEntity(Base):
         lazy="joined"
     )
 
-class AddressEnterpriseEntity(Base):
+class AddressEnterpriseEntity(TimestampMixin, Base):
     __tablename__ = "addresses_enterprise"
 
     enterprise_id: Mapped[int] = mapped_column(
@@ -539,7 +583,7 @@ class AddressEnterpriseEntity(Base):
 
     street: Mapped[str] = mapped_column(String(255), nullable=False)
     number: Mapped[str] = mapped_column(String(50), nullable=True)
-    complement: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    complement: Mapped[str | None] = mapped_column(Text, nullable=True)
     district: Mapped[str | None] = mapped_column(String(100), nullable=True)
     city: Mapped[str] = mapped_column(String(100), nullable=False)
     state: Mapped[str] = mapped_column(String(100), nullable=False)
@@ -553,22 +597,18 @@ class AddressEnterpriseEntity(Base):
     )
 
     is_default: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    is_public: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    is_public: Mapped[bool] = mapped_column(Boolean, default=True, nullable=True)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(),
-                                                 onupdate=func.now(), nullable=False)
+    enterprise: Mapped["EnterpriseEntity"] = relationship("EnterpriseEntity", back_populates="address_enterprise")
 
-    enterprise: Mapped["EnterpriseEntity"] = relationship("EnterpriseEntity", back_populates="address")
-
-class VacancyEntity(Base):
+class VacancyEntity(TimestampMixin, Base):
     __tablename__ = "vacancies"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     enterprise_id: Mapped[int] = mapped_column(ForeignKey("enterprises.id"), nullable=False)
     area_id: Mapped[int] = mapped_column(ForeignKey("areas.id"), nullable=False)
 
-    title: Mapped[str] = mapped_column(String(200), nullable=False, index=True)
+    title: Mapped[str] = mapped_column(String(250), nullable=False, index=True)
     description: Mapped[str] = mapped_column(Text, nullable=False)
 
     employment_type: Mapped[EmploymentTypeEnum] = mapped_column(Enum(EmploymentTypeEnum), nullable=False)
@@ -595,10 +635,6 @@ class VacancyEntity(Base):
 
     last_application_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(),
-                                                 onupdate=func.now(), nullable=False)
-
     enterprise: Mapped["EnterpriseEntity"] = relationship("EnterpriseEntity", back_populates="vacancies")
     area: Mapped["AreaEntity"] = relationship("AreaEntity", back_populates="vacancies")
 
@@ -612,7 +648,7 @@ class VacancyEntity(Base):
         cascade="all, delete-orphan",
     )
 
-class VacancyMetricEntity(Base):
+class VacancyMetricEntity(TimestampMixin, Base):
     __tablename__ = "vacancies_metric"
 
     vacancy_id: Mapped[int] = mapped_column(
@@ -629,16 +665,12 @@ class VacancyMetricEntity(Base):
 
     interview_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(),
-                                                 onupdate=func.now(), nullable=False)
-
-class VacancySkillEntity(Base):
+class VacancySkillEntity(TimestampMixin, Base):
     __tablename__ = "vacancy_skills"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    vacancy_id: Mapped[int] = mapped_column(ForeignKey("vacancies.id"), primary_key=True)
-    skill_id: Mapped[int] = mapped_column(ForeignKey("skills.id"), primary_key=True)
+    vacancy_id: Mapped[int] = mapped_column(ForeignKey("vacancies.id"))
+    skill_id: Mapped[int] = mapped_column(ForeignKey("skills.id"))
 
     is_required: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     proficiency: Mapped[ProficiencyEnum | None] = mapped_column(Enum(ProficiencyEnum, name="proficiency_enum"),
@@ -647,12 +679,8 @@ class VacancySkillEntity(Base):
     priority_level: Mapped[int | None] = mapped_column(Integer, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(),
-                                                 onupdate=func.now(), nullable=False)
-
-    vacancy: Mapped["VacancyEntity"] = relationship("VacancyEntity", back_populates="skills")
-    skill: Mapped["SkillEntity"] = relationship("SkillEntity", back_populates="vacancies")
+    vacancy: Mapped["VacancyEntity"] = relationship("VacancyEntity", back_populates="skills", lazy="joined")
+    skill: Mapped["SkillEntity"] = relationship("SkillEntity", back_populates="vacancies", lazy="joined")
 
 class ApplicationEntity(Base):
     __tablename__ = "applications"
@@ -670,8 +698,7 @@ class ApplicationEntity(Base):
 
     is_viewed: Mapped[bool] = mapped_column(Boolean, default=False)
     priority_level: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    rating: Mapped[int | None] = mapped_column(Integer,
-                                               nullable=True)
+    rating: Mapped[int | None] = mapped_column(Integer, nullable=True)
     feedback: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     source: Mapped[ApplicationSourceEnum | None] = mapped_column(
@@ -684,10 +711,10 @@ class ApplicationEntity(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(),
                                                  onupdate=func.now(), nullable=False)
 
-    user: Mapped["UserEntity"] = relationship("UserEntity", back_populates="applications")
-    vacancy: Mapped["VacancyEntity"] = relationship("VacancyEntity", back_populates="applications")
+    user: Mapped["UserEntity"] = relationship("UserEntity", back_populates="applications", lazy="joined")
+    vacancy: Mapped["VacancyEntity"] = relationship("VacancyEntity", back_populates="applications", lazy="joined")
 
-class EmployeeEnterpriseEntity(Base):
+class EmployeeEnterpriseEntity(TimestampMixin, Base):
     __tablename__ = "employees_enterprise"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
@@ -695,7 +722,7 @@ class EmployeeEnterpriseEntity(Base):
     user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"))
     enterprise_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("enterprises.id"))
 
-    position: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    position: Mapped[str | None] = mapped_column(String(150), nullable=True)
     salary_range: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     employment_type: Mapped[EmploymentTypeEnum] = mapped_column(
@@ -709,14 +736,10 @@ class EmployeeEnterpriseEntity(Base):
     start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(),
-                                                 onupdate=func.now(), nullable=False)
-
     owner: Mapped["UserEntity"] = relationship("UserEntity", back_populates="employments")
     enterprise: Mapped["EnterpriseEntity"] = relationship("EnterpriseEntity", back_populates="employments")
 
-class ReviewEnterprise(Base):
+class ReviewEnterprise(TimestampMixin, Base):
     __tablename__ = "reviews_enterprise"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
@@ -747,14 +770,10 @@ class ReviewEnterprise(Base):
     user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"))
     enterprise_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("enterprises.id"))
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(),
-                                                 onupdate=func.now(), nullable=False)
-
     owner: Mapped["UserEntity"] = relationship("UserEntity", back_populates="reviews")
     enterprise: Mapped["EnterpriseEntity"] = relationship("EnterpriseEntity", back_populates="reviews")
 
-class PostEnterpriseEntity(Base):
+class PostEnterpriseEntity(TimestampMixin, Base):
     __tablename__ = "posts_enterprise"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
@@ -764,10 +783,6 @@ class PostEnterpriseEntity(Base):
 
     enterprise_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("enterprises.id"))
     category_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("categories.id"))
-
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(),
-                                                 onupdate=func.now(), nullable=False)
 
     enterprise: Mapped["EnterpriseEntity"] = relationship("EnterpriseEntity", back_populates="posts")
     category: Mapped["CategoryEntity"] = relationship("CategoryEntity", back_populates="posts_enterprise")
@@ -793,7 +808,7 @@ class PostEnterpriseEntity(Base):
         cascade="all, delete-orphan"
     )
 
-class PostEnterpriseMetricEntity(Base):
+class PostEnterpriseMetricEntity(TimestampMixin, Base):
     __tablename__ = "metric_posts_enterprise"
 
     post_id: Mapped[int] = mapped_column(
@@ -813,10 +828,7 @@ class PostEnterpriseMetricEntity(Base):
 
     post: Mapped["PostEnterpriseEntity"] = relationship("PostEnterpriseEntity", back_populates="metrics")
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
-
-class CommentPostEnterpriseEntity(Base):
+class CommentPostEnterpriseEntity(TimestampMixin, Base):
     __tablename__ = "comments_posts_enterprise"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
@@ -836,9 +848,6 @@ class CommentPostEnterpriseEntity(Base):
     )
 
     is_edited: Mapped[bool] = mapped_column(Boolean, default=False)
-
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now)
 
     user: Mapped["UserEntity"] = relationship(
         "UserEntity",
@@ -882,7 +891,7 @@ class CommentPostEnterpriseEntity(Base):
         cascade="all, delete-orphan"
     )
 
-class CommentPostEnterpriseMetricEntity(Base):
+class CommentPostEnterpriseMetricEntity(TimestampMixin, Base):
     __tablename__ = "metric_comments_posts_enterprise"
 
     comment_id: Mapped[int] = mapped_column(
@@ -906,10 +915,6 @@ class CommentPostEnterpriseMetricEntity(Base):
         "CommentPostEnterpriseEntity",
         back_populates="metrics"
     )
-
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(),
-                                                 onupdate=func.now(), nullable=False)
 
 class ReactionCommentPostEnterpriseEntity(Base):
     __tablename__ = "reaction_comments_enterprise"
@@ -971,11 +976,14 @@ class FavoriteCommentPostEnterpriseEntity(Base):
 
     user: Mapped["UserEntity"] = relationship(
         "UserEntity",
-        back_populates="favorite_comment_enterprise"
+        back_populates="favorite_comment_enterprise",
+        lazy="joined"
     )
 
     comment: Mapped["CommentPostEnterpriseEntity"] = relationship(
-        "CommentPostEnterpriseEntity", back_populates="favorites"
+        "CommentPostEnterpriseEntity",
+        back_populates="favorites",
+        lazy="joined"
     )
 
 class ReactionPostEnterpriseEntity(Base):
@@ -1006,13 +1014,15 @@ class ReactionPostEnterpriseEntity(Base):
     user: Mapped["UserEntity"] = relationship(
         "UserEntity",
         foreign_keys=[user_id],
-        back_populates="enterprise_post_reactions"
+        back_populates="enterprise_post_reactions",
+        lazy="joined"
     )
 
     post_enterprise: Mapped["PostEnterpriseEntity"] = relationship(
         "PostEnterpriseEntity",
         foreign_keys=[post_enterprise_id],
-        back_populates="reactions"
+        back_populates="reactions",
+        lazy="joined"
     )
 
 class FavoritePostEnterpriseEntity(Base):
@@ -1025,16 +1035,23 @@ class FavoritePostEnterpriseEntity(Base):
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
-    owner: Mapped["UserEntity"] = relationship("UserEntity", back_populates="favorite_post_enterprise")
-    posts: Mapped["PostEnterpriseEntity"] = relationship("PostEnterpriseEntity",
-                                                         back_populates="favorite_post_enterprise")
+    owner: Mapped["UserEntity"] = relationship(
+        "UserEntity",
+        back_populates="favorite_post_enterprise",
+        lazy="joined"
+    )
+    posts: Mapped["PostEnterpriseEntity"] = relationship(
+        "PostEnterpriseEntity",
+        back_populates="favorite_post_enterprise",
+        lazy="joined"
+    )
 
-class CategoryEntity(Base):
+class CategoryEntity(TimestampMixin, Base):
     __tablename__ = "categories"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(100), nullable=False, unique=True, index=True)
-    slug: Mapped[str] = mapped_column(String(120), unique=True, index=True)
+    slug: Mapped[str] = mapped_column(String(220), unique=True, index=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     order: Mapped[int] = mapped_column(Integer, default=0)
@@ -1042,22 +1059,19 @@ class CategoryEntity(Base):
     post_count: Mapped[int] = mapped_column(Integer, default=0)
     job_count: Mapped[int] = mapped_column(Integer, default=0)
 
-    icon_url: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    icon_url: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"))
     parent_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("categories.id"), nullable=True)
     children: Mapped[list["CategoryEntity"]] = relationship("CategoryEntity", backref="parent",
                                                             remote_side="CategoryEntity.id")
 
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now)
-
     owner: Mapped["UserEntity"] = relationship("UserEntity", back_populates="categories")
     posts: Mapped[list["PostUserEntity"]] = relationship("PostUserEntity", back_populates="category")
     posts_enterprise: Mapped[list["PostEnterpriseEntity"]] = relationship("PostEnterpriseEntity",
                                                                           back_populates="category")
 
-class PostUserEntity(Base):
+class PostUserEntity(TimestampMixin, Base):
     __tablename__ = "posts_user"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
@@ -1067,9 +1081,6 @@ class PostUserEntity(Base):
 
     user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"))
     category_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("categories.id"))
-
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now)
 
     owner: Mapped["UserEntity"] = relationship("UserEntity", back_populates="posts")
     category: Mapped["CategoryEntity"] = relationship("CategoryEntity", back_populates="posts")
@@ -1097,7 +1108,7 @@ class PostUserEntity(Base):
         cascade="all, delete-orphan"
     )
 
-class PostUserMetricEntity(Base):
+class PostUserMetricEntity(TimestampMixin, Base):
     __tablename__ = "metric_posts_user"
 
     post_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("posts_user.id"), primary_key=True)
@@ -1111,15 +1122,12 @@ class PostUserMetricEntity(Base):
     favorites_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     comments_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now)
-
     post: Mapped["PostUserEntity"] = relationship(
         "PostUserEntity",
         back_populates="metrics"
     )
 
-class CommentPostUserEntity(Base):
+class CommentPostUserEntity(TimestampMixin, Base):
     __tablename__ = "comments_posts_user"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
@@ -1139,9 +1147,6 @@ class CommentPostUserEntity(Base):
     )
 
     is_edited: Mapped[bool] = mapped_column(Boolean, default=False)
-
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now)
 
     user: Mapped["UserEntity"] = relationship("UserEntity", back_populates="comments", lazy="joined")
 
@@ -1177,7 +1182,7 @@ class CommentPostUserEntity(Base):
         cascade="all, delete-orphan"
     )
 
-class CommentPostUserMetricEntity(Base):
+class CommentPostUserMetricEntity(TimestampMixin, Base):
     __tablename__ = "metric_comments_posts_user"
 
     comment_id: Mapped[int] = mapped_column(
@@ -1197,22 +1202,11 @@ class CommentPostUserMetricEntity(Base):
 
     favorites_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
-
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        onupdate=func.now(),
-        nullable=False,
-    )
-
     comment: Mapped["CommentPostUserEntity"] = relationship(
         "CommentPostUserEntity", back_populates="metrics"
     )
 
-class ReactionCommentPostUserEntity(Base):
+class ReactionCommentPostUserEntity(TimestampMixin, Base):
     __tablename__ = "reaction_comments_user"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -1224,16 +1218,13 @@ class ReactionCommentPostUserEntity(Base):
     user_id: Mapped[int] = mapped_column(
         BigInteger, ForeignKey("users.id")
     )
+
     comment_user_id: Mapped[int] = mapped_column(
         BigInteger, ForeignKey("comments_posts_user.id")
     )
 
     reaction_type: Mapped[ReactionTypeEnum] = mapped_column(
         Enum(ReactionTypeEnum, name="reaction_type_enum"), nullable=False
-    )
-
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
     user: Mapped["UserEntity"] = relationship(
@@ -1268,11 +1259,13 @@ class FavoriteCommentPostUserEntity(Base):
 
     user: Mapped["UserEntity"] = relationship(
         "UserEntity",
-        back_populates="favorite_comment_user"
+        back_populates="favorite_comment_user",
+        lazy="joined"
     )
 
     comment: Mapped["CommentPostUserEntity"] = relationship(
-        "CommentPostUserEntity", back_populates="favorites"
+        "CommentPostUserEntity", back_populates="favorites",
+        lazy="joined"
     )
 
 class ReactionPostUserEntity(Base):
@@ -1281,7 +1274,7 @@ class ReactionPostUserEntity(Base):
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
 
     __table_args__ = (
-        UniqueConstraint('user_id', 'post_user_id', name='_user_post_uc'),
+        UniqueConstraint('user_id', 'post_user_id', name='_user_post_uc_reaction_posts_user'),
     )
 
     user_id: Mapped[int] = mapped_column(
@@ -1302,16 +1295,18 @@ class ReactionPostUserEntity(Base):
     user: Mapped["UserEntity"] = relationship(
         "UserEntity",
         foreign_keys=[user_id],
-        back_populates="post_reactions"
+        back_populates="post_reactions",
+        lazy="joined"
     )
 
     post: Mapped["PostUserEntity"] = relationship(
         "PostUserEntity",
         foreign_keys=[post_user_id],
-        back_populates="reactions"
+        back_populates="reactions",
+        lazy="joined"
     )
 
-class MediaPostUserEntity(Base):
+class MediaPostUserEntity(TimestampMixin, Base):
     __tablename__ = "medias_post_user"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
@@ -1324,9 +1319,6 @@ class MediaPostUserEntity(Base):
 
     post_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("posts_user.id"))
 
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now)
-
     post: Mapped["PostUserEntity"] = relationship("PostUserEntity", back_populates="medias")
 
 class FavoritePostUserEntity(Base):
@@ -1334,11 +1326,23 @@ class FavoritePostUserEntity(Base):
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
 
+    __table_args__ = (
+        UniqueConstraint('user_id', 'post_user_id', name='_user_post_uc_favorite_posts_user'),
+    )
+
     user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"))
 
     post_user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("posts_user.id"))
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
 
-    owner: Mapped["UserEntity"] = relationship("UserEntity", back_populates="favorite_post_user")
-    post_user: Mapped["PostUserEntity"] = relationship("PostUserEntity", back_populates="favorite_post_user")
+    owner: Mapped["UserEntity"] = relationship(
+        "UserEntity",
+        back_populates="favorite_post_user",
+        lazy="joined"
+    )
+    post_user: Mapped["PostUserEntity"] = relationship(
+        "PostUserEntity",
+        back_populates="favorite_post_user",
+        lazy="joined"
+    )
