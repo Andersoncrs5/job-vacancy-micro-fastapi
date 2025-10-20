@@ -1,6 +1,24 @@
 import enum
 from typing import final
 
+class NotificationTypeEnum(str, enum.Enum):
+    NEW_FOLLOWER = "new_follower"
+    NEW_POST_FROM_FOLLOWED_USER = "new_post_from_followed_user"
+    NEW_POST_ENTERPRISE = "new_post_enterprise"
+    NEW_POST = "new_post"
+    POST_LIKED = "post_liked"
+    COMMENT_LIKED = "comment_liked"
+    COMMENT_RECEIVED = "comment_received"
+    APPLICATION_RECEIVED = "application_received"
+    SYSTEM = "system"
+    JOB_MATCH = "job_match"
+    NEW_MESSAGE = "new_message"
+    MENTION = "mention"
+    CONTENT_ALERT = "content_alert"
+    NEW_VACANCY = "new_vacancy"
+    NEW_COMMENT = "new_comment"
+
+
 class ReactionTypeEnum(str, enum.Enum):
     LIKE = "LIKE"
     DISLIKE = "DISLIKE"
