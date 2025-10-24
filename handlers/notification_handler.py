@@ -2,6 +2,7 @@ from configs.db.database import FollowerRelationshipEntity, EnterpriseFollowsUse
 from schemas.event_notification import EventNotification
 from services.provider.enterprise_follow_user_service_provider import EnterpriseFollowUserServiceProvider
 from services.provider.follow_service_provider import FollowServiceProvider
+from services.provider.notification_enterprise_service_provider import NotificationEnterpriseServiceProvider
 from services.provider.notification_service_provider import NotificationServiceProvider
 
 
@@ -10,12 +11,14 @@ class NotificationHandler:
                  event: EventNotification,
                  follow_service: FollowServiceProvider,
                  notification_service: NotificationServiceProvider,
+                 notification_enterprise_service: NotificationEnterpriseServiceProvider,
                  enterprise_follow_service: EnterpriseFollowUserServiceProvider,
                  ):
         self.enterprise_follow_service = enterprise_follow_service
         self.event = event
         self.follow_service = follow_service
         self.notification_service = notification_service
+        self.notification_enterprise_service = notification_enterprise_service
 
     async def notify_about_new_follow(self):
         await self.notification_service.notify_about_new_follow(event=self.event)
@@ -47,7 +50,6 @@ class NotificationHandler:
 
         await self.notification_service.notify_users_by_event_follow_by_enterprise(follows, self.event)
 
-
     async def notify_about_new_vacancy(self):
         follows: list[EnterpriseFollowsUserEntity] = await self.enterprise_follow_service.get_all(
             enterprise_id=self.event.actor_id,
@@ -58,3 +60,12 @@ class NotificationHandler:
         )
 
         await self.notification_service.notify_users_by_event_follow_by_enterprise(follows, self.event)
+
+    async def notify_enterprise_about_new_review(self):
+        await self.notification_enterprise_service.create_notify(self.event)
+
+    async def notify_user_about_notification_system(self):
+        await self.notification_service.notify_about_notification_system(event=self.event)
+
+    async def notify_enterprise_about_new_app(self):
+        await self.notification_enterprise_service.create_notify(self.event)
