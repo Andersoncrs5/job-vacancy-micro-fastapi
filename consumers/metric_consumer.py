@@ -1,5 +1,3 @@
-from typing import Final
-
 import structlog
 
 from configs.db.database import AsyncSessionLocal
@@ -59,7 +57,7 @@ async def consume_metric_events():
 
                 try:
                     event = EventMessageMetric.model_validate_json(msg.value.decode("utf-8"))
-                    logger.info(f"Event received: {event.model_dump_json()}")
+                    #logger.info(f"Event received: {event.model_dump_json()}")
 
                     if event.entity == EntityEnum.USER_METRIC:
                         handler = UserMetricHandler(event, user_metric_service)
