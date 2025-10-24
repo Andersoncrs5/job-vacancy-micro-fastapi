@@ -3,13 +3,14 @@ from typing import final
 
 class NotificationTypeEnum(str, enum.Enum):
     NEW_FOLLOWER = "new_follower"
-    NEW_POST_FROM_FOLLOWED_USER = "new_post_from_followed_user"
-    NEW_POST_ENTERPRISE = "new_post_enterprise"
     NEW_POST = "new_post"
+    NEW_POST_ENTERPRISE = "new_post_enterprise"
+    NEW_REVIEW_ENTERPRISE = "new_review_enterprise"
     POST_LIKED = "post_liked"
     COMMENT_LIKED = "comment_liked"
     COMMENT_RECEIVED = "comment_received"
     APPLICATION_RECEIVED = "application_received"
+    MENTION_ENTERPRISE = "mention_enterprise"
     SYSTEM = "system"
     JOB_MATCH = "job_match"
     NEW_MESSAGE = "new_message"
