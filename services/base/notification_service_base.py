@@ -7,6 +7,10 @@ from schemas.event_notification import EventNotification
 class NotificationServiceBase(ABC):
 
     @abstractmethod
+    async def notify_about_notification_system(self, event: EventNotification):
+        pass
+
+    @abstractmethod
     async def notify_users_by_event_follow_by_enterprise(self,
                                                          follows: list[EnterpriseFollowsUserEntity],
                                                          event: EventNotification
