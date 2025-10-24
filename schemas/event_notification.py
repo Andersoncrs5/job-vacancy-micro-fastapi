@@ -8,7 +8,7 @@ class EventNotification(ORJSONModel):
     event_id: UUID
     event_type: NotificationTypeEnum
     actor_id: int | None
-    entity_id: int
+    entity_id: int | None
     created_at: datetime
     source_service: str
     data: dict
