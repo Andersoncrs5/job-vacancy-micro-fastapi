@@ -9,6 +9,21 @@ class NotificationServiceProvider(NotificationServiceBase):
     def __init__(self, repository: NotifyRepositoryProvider):
         self.repository = repository
 
+    async def notify_about_notification_system(self, event: EventNotification):
+        title = event.data.get("title")
+        content = event.data.get("content")
+
+        notify = NotificationEntity(
+            user_id=event.actor_id,
+            title=title,
+            content=content,
+            link=None,
+            type=event.event_type,
+            entity_id=event.entity_id
+        )
+
+        await self.repository.add(notify)
+
     async def get_by_id(self, _id) -> NotificationEntity | None:
         return await self.repository.get_by_id(_id)
 
